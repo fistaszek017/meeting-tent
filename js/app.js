@@ -371,12 +371,12 @@
         if (candidates.length) {
           const target = candidates[Math.floor(Math.random() * candidates.length)];
           target.push(lonely);
-          note = `Nieparzysta liczba uczestników — ${lonely.name} dołącza do trójki (z osobą klasy A).`;
+          note = `Nieparzysta liczba uczestników — przynajmniej jedna z nich to animator.`;
         } else {
           // brak jakiejkolwiek osoby z klasą A wśród aktywnych — nie da się spełnić warunku
           const target = pairs[Math.floor(Math.random() * pairs.length)];
           target.push(lonely);
-          note = `Nieparzysta liczba uczestników — ${lonely.name} dołącza jako trzecia osoba. Uwaga: brak osoby z klasą A, więc trójka nie zawiera klasy A.`;
+          note = `Nieparzysta liczba uczestników. Uwaga: brak osoby z klasą A, więc trójka nie zawiera klasy A.`;
         }
       } else {
         groups.push([lonely]);
