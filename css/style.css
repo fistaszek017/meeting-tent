@@ -103,28 +103,12 @@ h1, h2, h3, .tab-btn, .btn-fire, .btn-sand, .btn-ghost, .pair-name, .result-name
   line-height: .95;
   letter-spacing: .01em;
   color: var(--parchment-light);
+  /* statyczna, ciepła poświata — malowana raz (bez animacji obciążającej każdą klatkę) */
   text-shadow:
-    0 0 18px rgba(240, 168, 72, .7),
-    0 0 50px rgba(217, 106, 43, .4),
+    0 0 22px rgba(240, 168, 72, .8),
+    0 0 55px rgba(217, 106, 43, .45),
     0 4px 14px rgba(0, 0, 0, .7);
   margin: 10px 0 8px;
-  animation: titleGlow 4s ease-in-out infinite;
-}
-
-@keyframes titleGlow {
-  0%, 100% {
-    text-shadow:
-      0 0 18px rgba(240, 168, 72, .7),
-      0 0 50px rgba(217, 106, 43, .4),
-      0 4px 14px rgba(0, 0, 0, .7);
-  }
-  50% {
-    text-shadow:
-      0 0 28px rgba(240, 168, 72, 1),
-      0 0 70px rgba(217, 106, 43, .65),
-      0 0 100px rgba(176, 58, 46, .3),
-      0 4px 14px rgba(0, 0, 0, .7);
-  }
 }
 
 .site-title {
@@ -303,7 +287,7 @@ main {
   padding: 8px 12px;
   cursor: pointer;
   user-select: none;
-  transition: all .18s;
+  transition: border-color .15s ease, box-shadow .15s ease, opacity .15s ease;
   position: relative;
 }
 .person:hover { border-color: var(--fire); box-shadow: 0 0 10px rgba(217, 106, 43, .3); }
@@ -349,7 +333,8 @@ main {
 }
 .person.is-a.disabled { background: #e8dcc2; border-color: var(--sand-dark); }
 .person .p-name { flex: 1; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.person .p-tag { font-size: .72rem; color: var(--fire-red); font-style: italic; }
+.person .p-tag { display: none; font-size: .72rem; color: var(--fire-red); font-style: italic; }
+.person.disabled .p-tag { display: inline; }
 .person.disabled { opacity: .5; background: #e8dcc2; }
 .person.disabled .dot { background: #a5a5a5; box-shadow: none; }
 .person.disabled .p-name { text-decoration: line-through; }

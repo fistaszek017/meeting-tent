@@ -47,9 +47,19 @@
     } catch { /* uszkodzone dane — start od zera */ }
   }
 
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // zapis buforowany — łączy wiele szybkich zmian w jeden zapis do localStorage
+  let saveTimer = null;
+  function flushSave() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* np. brak miejsca */ }
   }
+  function save() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 300);
+  }
+  // gwarancja zapisania przy opuszczeniu / ukryciu karty
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
 
   // ---------- pomocnicze ----------
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -144,75 +154,108 @@
   });
 
   // ---------- lista uczestników ----------
+  const disableTitle = (disabled) =>
+    disabled ? 'Kliknij, aby przywrócić do losowania' : 'Kliknij, aby wyłączyć z najbliższego losowania';
+
   function renderPeople() {
-    peopleList.innerHTML = '';
     // klasa A na górze, w obrębie klasy zachowana kolejność dodania (sort jest stabilny)
     const ordered = state.people
       .slice()
       .sort((a, b) => (a.cls === 'A' ? 0 : 1) - (b.cls === 'A' ? 0 : 1));
+
+    const frag = document.createDocumentFragment();
     for (const p of ordered) {
       const li = document.createElement('li');
       li.className = 'person' + (p.disabled ? ' disabled' : '') + (p.cls === 'A' ? ' is-a' : '');
-      li.title = p.disabled
-        ? 'Kliknij, aby przywrócić do losowania'
-        : 'Kliknij, aby wyłączyć z najbliższego losowania';
+      li.dataset.id = p.id;
+      li.title = disableTitle(p.disabled);
 
       const dot = document.createElement('span');
       dot.className = 'dot';
 
       const cls = document.createElement('span');
       cls.className = 'p-class cls-' + p.cls;
+      cls.dataset.role = 'class';
       cls.textContent = p.cls;
       cls.title = 'Klasa ' + p.cls + ' — kliknij, aby zmienić';
-      cls.addEventListener('click', (e) => {
-        e.stopPropagation();
-        p.cls = p.cls === 'A' ? 'U' : 'A';
-        save();
-        renderAll();
-      });
 
       const name = document.createElement('span');
       name.className = 'p-name';
       name.textContent = p.name;
 
-      li.append(dot, cls, name);
-
-      if (p.disabled) {
-        const tag = document.createElement('span');
-        tag.className = 'p-tag';
-        tag.textContent = 'pominięty';
-        li.append(tag);
-      }
+      // etykieta zawsze obecna, pokazywana przez CSS gdy .person.disabled
+      const tag = document.createElement('span');
+      tag.className = 'p-tag';
+      tag.textContent = 'pominięty';
 
       const rm = document.createElement('button');
       rm.className = 'p-remove';
+      rm.dataset.role = 'remove';
+      rm.type = 'button';
       rm.textContent = '✕';
       rm.title = 'Usuń z listy na stałe';
-      rm.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!confirm(`Usunąć „${p.name}” z listy na stałe?`)) return;
-        state.people = state.people.filter((x) => x.id !== p.id);
-        state.pairs = state.pairs.filter((pr) => !pr.includes(p.id));
-        save();
-        renderAll();
-      });
-      li.append(rm);
 
-      li.addEventListener('click', () => {
-        p.disabled = !p.disabled;
-        save();
-        renderAll();
-      });
+      li.append(dot, cls, name, tag, rm);
+      frag.append(li);
+    }
+    peopleList.replaceChildren(frag);
+  }
 
-      peopleList.append(li);
+  // jeden nasłuchiwacz dla całej listy (delegacja) — bez odtwarzania listenerów przy renderze
+  peopleList.addEventListener('click', (e) => {
+    const li = e.target.closest('.person');
+    if (!li) return;
+    const p = personById(li.dataset.id);
+    if (!p) return;
+
+    // usunięcie na stałe
+    if (e.target.closest('[data-role="remove"]')) {
+      if (!confirm(`Usunąć „${p.name}” z listy na stałe?`)) return;
+      state.people = state.people.filter((x) => x.id !== p.id);
+      state.pairs = state.pairs.filter((pr) => !pr.includes(p.id));
+      save();
+      renderPeople();
+      renderPairSelects();
+      renderPairs();
+      updateCounts();
+      return;
     }
 
+    // zmiana klasy — wymaga przesortowania listy (rzadka akcja)
+    if (e.target.closest('[data-role="class"]')) {
+      p.cls = p.cls === 'A' ? 'U' : 'A';
+      save();
+      renderPeople();
+      updateCounts();
+      return;
+    }
+
+    // najczęstsza akcja: wyłączenie/przywrócenie — aktualizacja w miejscu, bez przebudowy
+    p.disabled = !p.disabled;
+    save();
+    li.classList.toggle('disabled', p.disabled);
+    li.title = disableTitle(p.disabled);
+    updateCounts();
+  });
+
+  function updateCounts() {
     const active = state.people.filter((p) => !p.disabled).length;
     countBadge.textContent = state.people.length
       ? `${active} aktywnych / ${state.people.length}`
       : '';
     emptyInfo.hidden = state.people.length > 0;
     btnClear.hidden = state.people.length === 0;
+
+    if (!drawing) {
+      btnDraw.disabled = active < 2;
+      if (state.people.length === 0) {
+        drawStatus.textContent = 'Wczytaj uczestników w zakładce „Uczestnicy”, aby rozpocząć.';
+      } else if (active < 2) {
+        drawStatus.textContent = 'Za mało aktywnych uczestników — potrzeba co najmniej dwóch.';
+      } else {
+        drawStatus.textContent = `Gotowych do losowania: ${active}.`;
+      }
+    }
   }
 
   // ---------- ustalone pary ----------
@@ -220,41 +263,60 @@
     const takenIds = new Set(state.pairs.flat());
     const options = state.people.filter((p) => !takenIds.has(p.id));
     for (const sel of [pairA, pairB]) {
-      sel.innerHTML = '<option value="">— wybierz osobę —</option>';
+      const prev = sel.value;
+      const frag = document.createDocumentFragment();
+      const first = document.createElement('option');
+      first.value = '';
+      first.textContent = '— wybierz osobę —';
+      frag.append(first);
       for (const p of options) {
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.textContent = p.name;
-        sel.append(opt);
+        frag.append(opt);
       }
+      sel.replaceChildren(frag);
+      // zachowaj wybór, jeśli nadal dostępny
+      if (prev && options.some((p) => p.id === prev)) sel.value = prev;
     }
   }
 
   function renderPairs() {
-    pairsList.innerHTML = '';
+    const frag = document.createDocumentFragment();
     for (const [a, b] of state.pairs) {
       const pa = personById(a);
       const pb = personById(b);
       if (!pa || !pb) continue;
       const li = document.createElement('li');
       li.className = 'pair-item';
+      li.dataset.a = a;
+      li.dataset.b = b;
       li.innerHTML = `<span class="pair-name">${pa.name}</span>
         <span class="pair-amp">&amp;</span>
         <span class="pair-name">${pb.name}</span>`;
       const rm = document.createElement('button');
       rm.className = 'pair-remove';
+      rm.dataset.role = 'pair-remove';
+      rm.type = 'button';
       rm.textContent = '✕';
       rm.title = 'Rozłącz parę';
-      rm.addEventListener('click', () => {
-        state.pairs = state.pairs.filter((pr) => pr !== undefined && !(pr[0] === a && pr[1] === b));
-        save();
-        renderAll();
-      });
       li.append(rm);
-      pairsList.append(li);
+      frag.append(li);
     }
+    pairsList.replaceChildren(frag);
     pairsEmpty.hidden = state.pairs.length > 0;
   }
+
+  // delegacja dla listy par
+  pairsList.addEventListener('click', (e) => {
+    const li = e.target.closest('.pair-item');
+    if (!li || !e.target.closest('[data-role="pair-remove"]')) return;
+    const { a, b } = li.dataset;
+    state.pairs = state.pairs.filter((pr) => !(pr[0] === a && pr[1] === b));
+    save();
+    renderPairSelects();
+    renderPairs();
+  });
 
   btnPair.addEventListener('click', () => {
     const a = pairA.value;
@@ -262,7 +324,8 @@
     if (!a || !b || a === b) return;
     state.pairs.push([a, b]);
     save();
-    renderAll();
+    renderPairSelects();
+    renderPairs();
   });
 
   secretToggle.addEventListener('click', () => {
@@ -395,18 +458,7 @@
     renderPeople();
     renderPairSelects();
     renderPairs();
-
-    const active = state.people.filter((p) => !p.disabled).length;
-    if (!drawing) {
-      btnDraw.disabled = active < 2;
-      if (state.people.length === 0) {
-        drawStatus.textContent = 'Wczytaj uczestników w zakładce „Uczestnicy”, aby rozpocząć.';
-      } else if (active < 2) {
-        drawStatus.textContent = 'Za mało aktywnych uczestników — potrzeba co najmniej dwóch.';
-      } else {
-        drawStatus.textContent = `Gotowych do losowania: ${active}.`;
-      }
-    }
+    updateCounts();
   }
 
   load();
