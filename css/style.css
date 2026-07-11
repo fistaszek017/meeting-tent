@@ -131,7 +131,7 @@ h1, h2, h3, .tab-btn, .btn-fire, .btn-sand, .btn-ghost, .pair-name, .card-name, 
   display: block;
   font-size: clamp(3.8rem, 12vw, 7.2rem);
   line-height: .9;
-  color: var(--parchment-light);
+  color: var(--sand);
 }
 
 .site-subtitle {
