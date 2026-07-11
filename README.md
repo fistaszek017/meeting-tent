@@ -4,7 +4,8 @@ Prosta aplikacja webowa (czysty HTML/CSS/JS, bez zależności) do losowania ucze
 
 ## Funkcje
 
-- **Wczytywanie z CSV** — jedno imię w wierszu (liczy się pierwsza kolumna; nagłówek typu `imie`/`name` jest pomijany). Można też dopisywać osoby ręcznie.
+- **Wczytywanie z CSV** — kolumny `imię,klasa`, gdzie klasa to litera `A` lub `U` (brak/inna wartość = `U`). Nagłówek typu `imie`/`name` jest pomijany. Można też dopisywać osoby ręcznie, wybierając klasę z listy.
+- **Klasy postaci (A / U)** — osoby z klasą `A` wyświetlają się na górze listy uczestników i są wyróżnione. Klasę można zmienić, klikając znacznik `A`/`U` przy osobie. Gdy przy nieparzystej liczbie uczestników trzeba utworzyć trójkę, aplikacja gwarantuje, że znajdzie się w niej co najmniej jedna osoba z klasą `A` (o ile jakakolwiek osoba z klasą `A` bierze udział w losowaniu).
 - **localStorage** — lista uczestników i ustalone pary są zapamiętywane w przeglądarce.
 - **Jednorazowe wyłączanie** — w zakładce „Uczestnicy” kliknięcie osoby wyłącza ją z *najbliższego* losowania. Po zakończonym losowaniu wszyscy wyłączeni automatycznie wracają do puli.
 - **Ukryte pary ustalone** — na dole zakładki „Uczestnicy” jest dyskretna gwiazdka (✦). Po jej kliknięciu otwiera się sekcja, w której można połączyć dwie osoby — w losowaniu na pewno trafią na siebie. Pozostali losowani są normalnie. Jeśli któraś osoba z ustalonej pary jest wyłączona, para w tym losowaniu nie obowiązuje.

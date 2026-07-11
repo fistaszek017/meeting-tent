@@ -3,8 +3,10 @@
 
   const STORAGE_KEY = 'meeting-tent-state-v1';
 
-  /** @type {{people: {id:string, name:string, disabled:boolean}[], pairs: [string,string][]}} */
+  /** @type {{people: {id:string, name:string, cls:'A'|'U', disabled:boolean}[], pairs: [string,string][]}} */
   let state = { people: [], pairs: [] };
+
+  const normClass = (v) => (String(v || '').trim().toUpperCase().startsWith('A') ? 'A' : 'U');
 
   // ---------- elementy ----------
   const $ = (sel) => document.querySelector(sel);
@@ -13,6 +15,7 @@
   const csvInput = $('#csv-input');
   const addForm = $('#add-form');
   const addName = $('#add-name');
+  const addClass = $('#add-class');
   const peopleList = $('#people-list');
   const emptyInfo = $('#empty-info');
   const countBadge = $('#count-badge');
@@ -37,7 +40,9 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (Array.isArray(data.people)) state.people = data.people;
+      if (Array.isArray(data.people)) {
+        state.people = data.people.map((p) => ({ ...p, cls: normClass(p.cls) }));
+      }
       if (Array.isArray(data.pairs)) state.pairs = data.pairs;
     } catch { /* uszkodzone dane — start od zera */ }
   }
@@ -78,17 +83,19 @@
 
   // ---------- CSV ----------
   function parseCsv(text) {
-    const names = [];
+    const rows = [];
     for (const line of text.split(/\r?\n/)) {
-      let cell = line.split(/[;,\t]/)[0].trim().replace(/^"|"$/g, '').trim();
-      if (!cell) continue;
-      names.push(cell);
+      if (!line.trim()) continue;
+      const cells = line.split(/[;,\t]/).map((c) => c.trim().replace(/^"|"$/g, '').trim());
+      const name = cells[0];
+      if (!name) continue;
+      rows.push({ name, cls: normClass(cells[1]) });
     }
-    // pomiń nagłówek typu "imie"/"name"
-    if (names.length && /^(imi[eę]|imi[eę] i nazwisko|name|osoba|uczestnik)$/i.test(names[0])) {
-      names.shift();
+    // pomiń nagłówek typu "imie"/"name" (+ ewentualna kolumna "klasa"/"class")
+    if (rows.length && /^(imi[eę]|imi[eę] i nazwisko|name|osoba|uczestnik)$/i.test(rows[0].name)) {
+      rows.shift();
     }
-    return names;
+    return rows;
   }
 
   csvInput.addEventListener('change', () => {
@@ -96,13 +103,13 @@
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const names = parseCsv(String(reader.result));
+      const rows = parseCsv(String(reader.result));
       let added = 0;
       const existing = new Set(state.people.map((p) => p.name.toLowerCase()));
-      for (const name of names) {
+      for (const { name, cls } of rows) {
         if (existing.has(name.toLowerCase())) continue;
         existing.add(name.toLowerCase());
-        state.people.push({ id: uid(), name, disabled: false });
+        state.people.push({ id: uid(), name, cls, disabled: false });
         added++;
       }
       save();
@@ -123,7 +130,7 @@
       addName.value = '';
       return;
     }
-    state.people.push({ id: uid(), name, disabled: false });
+    state.people.push({ id: uid(), name, cls: normClass(addClass.value), disabled: false });
     addName.value = '';
     save();
     renderAll();
@@ -139,9 +146,13 @@
   // ---------- lista uczestników ----------
   function renderPeople() {
     peopleList.innerHTML = '';
-    for (const p of state.people) {
+    // klasa A na górze, w obrębie klasy zachowana kolejność dodania (sort jest stabilny)
+    const ordered = state.people
+      .slice()
+      .sort((a, b) => (a.cls === 'A' ? 0 : 1) - (b.cls === 'A' ? 0 : 1));
+    for (const p of ordered) {
       const li = document.createElement('li');
-      li.className = 'person' + (p.disabled ? ' disabled' : '');
+      li.className = 'person' + (p.disabled ? ' disabled' : '') + (p.cls === 'A' ? ' is-a' : '');
       li.title = p.disabled
         ? 'Kliknij, aby przywrócić do losowania'
         : 'Kliknij, aby wyłączyć z najbliższego losowania';
@@ -149,11 +160,22 @@
       const dot = document.createElement('span');
       dot.className = 'dot';
 
+      const cls = document.createElement('span');
+      cls.className = 'p-class cls-' + p.cls;
+      cls.textContent = p.cls;
+      cls.title = 'Klasa ' + p.cls + ' — kliknij, aby zmienić';
+      cls.addEventListener('click', (e) => {
+        e.stopPropagation();
+        p.cls = p.cls === 'A' ? 'U' : 'A';
+        save();
+        renderAll();
+      });
+
       const name = document.createElement('span');
       name.className = 'p-name';
       name.textContent = p.name;
 
-      li.append(dot, name);
+      li.append(dot, cls, name);
 
       if (p.disabled) {
         const tag = document.createElement('span');
@@ -252,14 +274,15 @@
   function computeDraw() {
     const active = state.people.filter((p) => !p.disabled);
     const activeIds = new Set(active.map((p) => p.id));
+    const isA = (p) => p.cls === 'A';
 
-    const result = [];
+    const groups = []; // grupy obiektów osób
     const used = new Set();
 
     // pary wymuszone — tylko gdy obie osoby aktywne
     for (const [a, b] of state.pairs) {
       if (activeIds.has(a) && activeIds.has(b)) {
-        result.push([personById(a).name, personById(b).name]);
+        groups.push([personById(a), personById(b)]);
         used.add(a);
         used.add(b);
       }
@@ -270,25 +293,36 @@
     while (rest.length >= 2) {
       const a = rest.pop();
       const b = rest.pop();
-      result.push([a.name, b.name]);
+      groups.push([a, b]);
     }
 
     let note = '';
     if (rest.length === 1) {
-      // nieparzysta liczba — dołącz do losowej pary jako trójka
+      // nieparzysta liczba — dołącz do pary jako trójka.
+      // Trójka musi zawierać co najmniej jedną osobę z klasą A.
       const lonely = rest.pop();
-      const randomPairs = result.filter((g) => g.length === 2);
-      if (randomPairs.length) {
-        const target = randomPairs[Math.floor(Math.random() * randomPairs.length)];
-        target.push(lonely.name);
-        note = `Nieparzysta liczba uczestników — ${lonely.name} dołącza jako trzecia osoba.`;
+      const pairs = groups.filter((g) => g.length === 2);
+      if (pairs.length) {
+        // pary, do których dołączenie utworzy trójkę z klasą A
+        const candidates = isA(lonely) ? pairs : pairs.filter((g) => g.some(isA));
+        if (candidates.length) {
+          const target = candidates[Math.floor(Math.random() * candidates.length)];
+          target.push(lonely);
+          note = `Nieparzysta liczba uczestników — ${lonely.name} dołącza do trójki (z osobą klasy A).`;
+        } else {
+          // brak jakiejkolwiek osoby z klasą A wśród aktywnych — nie da się spełnić warunku
+          const target = pairs[Math.floor(Math.random() * pairs.length)];
+          target.push(lonely);
+          note = `Nieparzysta liczba uczestników — ${lonely.name} dołącza jako trzecia osoba. Uwaga: brak osoby z klasą A, więc trójka nie zawiera klasy A.`;
+        }
       } else {
-        result.push([lonely.name]);
+        groups.push([lonely]);
         note = `${lonely.name} pozostaje bez pary — za mało uczestników.`;
       }
     }
 
-    return { groups: shuffle(result), note };
+    const named = shuffle(groups).map((g) => g.map((p) => p.name));
+    return { groups: named, note };
   }
 
   function drawPairs() {

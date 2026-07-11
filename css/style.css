@@ -274,6 +274,18 @@ main {
 }
 .add-form input:focus { outline: 2px solid var(--fire-glow); }
 
+.class-select {
+  padding: 9px 10px;
+  border: 1px solid var(--sand-deep);
+  border-radius: 8px;
+  background: #fdf6e5;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: #3a2f1d;
+  cursor: pointer;
+}
+.class-select:focus { outline: 2px solid var(--fire-glow); }
+
 /* ============ Lista uczestników ============ */
 .people-list {
   list-style: none;
@@ -302,6 +314,40 @@ main {
   flex-shrink: 0;
   box-shadow: 0 0 6px rgba(78, 143, 78, .7);
 }
+.person .p-class {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-family: 'Dilana', Georgia, serif;
+  font-size: .95rem;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: filter .15s, transform .1s;
+}
+.person .p-class:hover { filter: brightness(1.12); }
+.person .p-class:active { transform: translateY(1px); }
+.person .cls-A {
+  background: linear-gradient(180deg, var(--fire), var(--fire-red));
+  color: var(--parchment-light);
+  border: 1px solid var(--fire-red);
+  box-shadow: 0 0 8px rgba(217, 106, 43, .5);
+}
+.person .cls-U {
+  background: #e6d5b0;
+  color: #6b5a3c;
+  border: 1px solid var(--sand-dark);
+}
+/* delikatne wyróżnienie wiersza klasy A */
+.person.is-a {
+  border-color: var(--fire);
+  background: linear-gradient(180deg, #fdf1dc, #f7e6c4);
+}
+.person.is-a.disabled { background: #e8dcc2; border-color: var(--sand-dark); }
 .person .p-name { flex: 1; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .person .p-tag { font-size: .72rem; color: var(--fire-red); font-style: italic; }
 .person.disabled { opacity: .5; background: #e8dcc2; }

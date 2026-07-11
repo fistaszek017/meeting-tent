@@ -48,7 +48,7 @@
 
     <div class="panel">
       <h2>Wczytaj uczestników</h2>
-      <p class="hint">Plik CSV — jedno imię w wierszu (może być z nagłówkiem, liczy się pierwsza kolumna). Lista zapisuje się w przeglądarce.</p>
+      <p class="hint">Plik CSV — kolumny <code>imię,klasa</code> (klasa to litera <strong>A</strong> lub <strong>U</strong>). Nagłówek jest opcjonalny, brak klasy oznacza <strong>U</strong>. Lista zapisuje się w przeglądarce.</p>
       <div class="upload-row">
         <label class="btn-sand file-label">
           Wybierz plik CSV
@@ -56,6 +56,10 @@
         </label>
         <form id="add-form" class="add-form">
           <input type="text" id="add-name" placeholder="…albo dopisz osobę ręcznie" maxlength="60" />
+          <select id="add-class" class="class-select" title="Klasa postaci">
+            <option value="U">Klasa U</option>
+            <option value="A">Klasa A</option>
+          </select>
           <button type="submit" class="btn-sand">Dodaj</button>
         </form>
       </div>
