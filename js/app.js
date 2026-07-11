@@ -401,40 +401,52 @@
     const { groups, note } = computeDraw();
 
     resultsEl.hidden = false;
-    resultsEl.innerHTML = '';
 
-    const cards = groups.map((group, i) => {
-      const card = document.createElement('div');
-      card.className = 'result-card' + (group.length > 2 ? ' trio' : '');
-      card.innerHTML = `<div class="pair-no">Para ${i + 1}</div>
-        <div class="result-names"><span class="shuffling"></span></div>`;
-      resultsEl.append(card);
-      return card;
-    });
+    // każda osoba to osobna karta; osoby w jednej grupie łączy znak "&"
+    const frag = document.createDocumentFragment();
+    const groupData = [];
+    for (const group of groups) {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'pair-group' + (group.length > 2 ? ' trio' : '') + (group.length < 2 ? ' solo' : '');
+      const nameNodes = [];
+      group.forEach((personName, idx) => {
+        if (idx > 0) {
+          const link = document.createElement('span');
+          link.className = 'link';
+          link.textContent = '&';
+          groupEl.append(link);
+        }
+        const card = document.createElement('div');
+        card.className = 'person-card';
+        const nameEl = document.createElement('span');
+        nameEl.className = 'card-name';
+        card.append(nameEl);
+        groupEl.append(card);
+        nameNodes.push({ el: nameEl, finalName: personName });
+      });
+      frag.append(groupEl);
+      groupData.push({ el: groupEl, names: nameNodes });
+    }
+    resultsEl.replaceChildren(frag);
 
-    // krótka animacja: migające losowe imiona, potem odsłanianie kart po kolei
-    const spinMs = 900;
+    const allNameNodes = groupData.flatMap((g) => g.names);
+
+    // krótka animacja: w każdej karcie migają losowe imiona
     const spinInterval = setInterval(() => {
-      for (const card of cards) {
-        const el = card.querySelector('.shuffling');
-        if (!el) continue;
-        const a = activeNames[Math.floor(Math.random() * activeNames.length)];
-        const b = activeNames[Math.floor(Math.random() * activeNames.length)];
-        el.textContent = `${a} & ${b}`;
+      for (const n of allNameNodes) {
+        n.el.textContent = activeNames[Math.floor(Math.random() * activeNames.length)];
       }
     }, 70);
 
+    const spinMs = 900;
     setTimeout(() => {
       clearInterval(spinInterval);
-      cards.forEach((card, i) => {
+      groupData.forEach((g, i) => {
         setTimeout(() => {
-          const names = groups[i]
-            .map((n) => `<span>${n}</span>`)
-            .join('<span class="amp">&amp;</span>');
-          card.querySelector('.result-names').innerHTML = names;
-          card.classList.add('revealed');
+          for (const n of g.names) n.el.textContent = n.finalName;
+          g.el.classList.add('revealed');
 
-          if (i === cards.length - 1) {
+          if (i === groupData.length - 1) {
             // koniec losowania: jednorazowe wyłączenia wracają do puli
             state.people.forEach((p) => { p.disabled = false; });
             save();
@@ -446,7 +458,7 @@
               drawNote.hidden = false;
             }
           }
-        }, i * 220);
+        }, i * 180);
       });
     }, spinMs);
   }
